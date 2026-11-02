@@ -324,7 +324,8 @@ std::optional<FrameSubmitCoordinator::AcquiredSubmit> FrameSubmitCoordinator::ac
         else if (preview != VK_NOT_READY)
             vkCheck(preview, "video preview fence status");
     }
-    if (!presentationPaused_ && !metadata.hidePreview && swapchainRenderer_.ready() && !slot->previewSubmitted) {
+    const bool uiActive = uiPresentationActive_.load(std::memory_order_relaxed) || capturePort_.multiframeEnabled();
+    if (uiActive && !presentationPaused_ && !metadata.hidePreview && swapchainRenderer_.ready() && !slot->previewSubmitted) {
         uint32_t index = 0;
         const VkResult acquire = swapchainRenderer_.acquireNextImage(slot->imageAvailable, &index);
         trace.record(rawrcam::diagnostics::RuntimeTraceStage::SwapAcquire, params.timestampNs, metadata.frameOrdinal,
@@ -1028,7 +1029,8 @@ bool FrameSubmitCoordinator::submitAhb(uint64_t timestampNs, rawrcam::imaging::R
     AHardwareBuffer* const ahb = lease.ahb();
     const int acquireFenceFd = lease.fence();
     const bool videoReady = videoOutput_ && videoOutput_->ready() && config_.diagnosticMode == 0u;
-    if (!configured_ || ((!swapchainRenderer_.ready() || presentationPaused_) && !videoReady)) return false;
+    const bool uiActive = uiPresentationActive_.load(std::memory_order_relaxed) || capturePort_.multiframeEnabled();
+    if (!configured_ || ((!uiActive || !swapchainRenderer_.ready() || presentationPaused_) && !videoReady)) return false;
 
     // The CPU read below waits on the camera fence and touches the whole RAW
     // buffer; during recording that stall lands in the encoder's frame cadence.
