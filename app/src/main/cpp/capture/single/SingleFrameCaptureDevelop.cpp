@@ -17,8 +17,13 @@ namespace rawrcam::capture {
 namespace {
 bool useSecondaryQueue(const vulkan::VulkanContext& context) {
     char value[PROP_VALUE_MAX] = {};
-    const bool primary = __system_property_get("debug.rawr.single_primary_queue", value) > 0 && value[0] == '1';
-    return context.hasMultiframeQueue() && !primary;
+    const int length = __system_property_get("debug.rawr.single_primary_queue", value);
+    if (!context.hasMultiframeQueue() || (length > 0 && value[0] == '1')) return false;
+    if (length > 0 && value[0] == '0') return true;  // Diagnostic legacy comparison.
+    // A continuously busy Mali preview can starve the lower-priority queue.
+    // Share the primary FIFO and its submission mutex for bounded single-frame
+    // batches instead; do not alter global priorities or multiframe scheduling.
+    return context.gpuVendor() != vulkan::GpuVendor::Mali;
 }
 }  // namespace
 SingleFrameCaptureDevelop::SingleFrameCaptureDevelop(const vulkan::VulkanContext& vk, std::mutex& mutex,
@@ -69,9 +74,8 @@ bool SingleFrameCaptureDevelop::start(const std::shared_ptr<const rawrcam::imagi
         }
 
         switch (jpegContext.develop.demosaicAlgorithm) {
-            // Default to the secondary queue when present. The opt-in primary
-            // queue experiment shares preview's submission lane and mutex;
-            // bounded processor submissions and CPU fences still order work.
+            // Freeze the vendor-qualified queue and its matching mutex for
+            // every stage; bounded submissions and CPU fences order the work.
             case develop::DemosaicAlgorithm::Amaze:
                 amaze_.configure(vulkanContext_, queueSubmitMutex_, camera.cameraContextGeneration, camera.cameraId,
                                  captured.width, captured.height, camera.rawPreviewCfa,

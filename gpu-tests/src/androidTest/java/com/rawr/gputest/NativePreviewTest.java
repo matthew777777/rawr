@@ -34,6 +34,13 @@ public final class NativePreviewTest {
         boolean trace = Boolean.parseBoolean(InstrumentationRegistry.getArguments().getString("trace", "false"));
         boolean highlightReference = Boolean.parseBoolean(InstrumentationRegistry.getArguments().getString("highlightReference", "false"));
         boolean guideReference = Boolean.parseBoolean(InstrumentationRegistry.getArguments().getString("guideReference", "false"));
+        boolean capture = Boolean.parseBoolean(InstrumentationRegistry.getArguments().getString("capture", "false"));
+        int demosaic = Integer.parseInt(InstrumentationRegistry.getArguments().getString("captureDemosaic", "4"));
+        int captureShots = Integer.parseInt(InstrumentationRegistry.getArguments().getString("captureShots", "1"));
+        int capturePauseAfterMs = Integer.parseInt(InstrumentationRegistry.getArguments().getString("capturePauseAfterMs", "0"));
+        assertTrue(demosaic >= 1 && demosaic <= 5);
+        assertTrue(captureShots >= 1 && captureShots <= 12);
+        assertTrue(capturePauseAfterMs >= 0 && capturePauseAfterMs <= 10000);
         assertFalse("Choose one shader reference", highlightReference && guideReference);
         assertTrue(targetFrames >= 30 && targetFrames <= 600);
         assertTrue(cycles >= 2 && cycles <= 10);
@@ -110,6 +117,15 @@ public final class NativePreviewTest {
                 Files.write(new File(dir, "lifecycle.json").toPath(), rows.toString(2).getBytes(StandardCharsets.UTF_8));
                 assertTrue("Too few production preview frames; inspect native diagnostics", frames.get() - first >= targetFrames);
                 assertNull("EGL presentation consumer failed", consumer.failure.get());
+                if (capture) {
+                    JSONArray captures = new JSONArray();
+                    row.put("captures", captures);
+                    for (int shot = 0; shot < captureShots; ++shot) {
+                        captures.put(NativeStillCapture.run(engine, handle, dir, cycle * captureShots + shot,
+                                                           profile, demosaic, frames, capturePauseAfterMs));
+                        Files.write(new File(dir, "lifecycle.json").toPath(), rows.toString(2).getBytes(StandardCharsets.UTF_8));
+                    }
+                }
                 if (testUiPause) {
                     int pauseBeginFrames = frames.get();
                     engine.setUiPresentationActive(handle, false);

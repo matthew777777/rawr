@@ -24,4 +24,14 @@ public final class NativePreviewEngine {
     public native void setColorRenderProfile(long handle, int profile, String importedLut);
     public native void setScopePresentationState(long handle, int[] types, int[] modes, int[] rotations, float[] rects);
     public native String cameraControlSnapshot(long handle);
+    // Descriptor ownership transfers to the native request, including rejection.
+    public native long requestRawStillCapture(long handle, int dngFd, int jpegFd, int quality, int subsampling,
+        boolean diagnostics, int profile, String lut, String renderer, int demosaic, boolean dualAuto, float dualContrast,
+        int fcc, boolean lensShading, boolean highlights, int rotation, long wallClock, int utcOffset,
+        String make, String model, String dngName, String jpegName, boolean distortion, String filmDescription,
+        boolean defringe, float defringeStrength, float defringeEdge, float defringeFloor,
+        int[] denoiseModes, float[] denoiseStrengths, String recipe, float[] tone, float[] filmValues, int[] filmEnums,
+        boolean filmEnabled, boolean ultraHdr, int gainmapQuality, int dngCompression, Object gps);
+    public native String pollDngWriteCompletion(long handle);
+    public native String pollJpegWriteCompletion(long handle);
 }
